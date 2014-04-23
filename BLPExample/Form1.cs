@@ -1,10 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
-using System.Linq;
-using System.Text;
+using System.Drawing.Imaging;
 using System.Windows.Forms;
 
 using System.IO;
@@ -33,19 +29,19 @@ namespace BLPExample
                     this.exampleBLP = null;
                 }
 
-                FileStream file = new FileStream("example.blp", FileMode.Open);
+                var dlg = openFileDialog.ShowDialog();
+                if (dlg != DialogResult.OK)
+                    return;
+                FileStream file = new FileStream(openFileDialog.FileName, FileMode.Open);
                 this.exampleBLP = new SereniaBLPLib.BlpFile(file);
-                MessageBox.Show("Mipmap count: "+exampleBLP.MipMapCount);
+                //MessageBox.Show("Mipmap count: "+exampleBLP.MipMapCount);
 
                 // loading bitmap level 0
                 bmp = this.exampleBLP.getBitmap(0);
 
                 g.DrawImage(bmp, 0, 0);
 
-                button2.Enabled = true;
-                button3.Enabled = true;
-                button4.Enabled = true;
-                
+                button3.Enabled = true;                
             }
             catch (FileNotFoundException fe)
             {
@@ -53,19 +49,29 @@ namespace BLPExample
             }
         }
 
-        private void button2_Click(object sender, EventArgs e)
-        {
-            this.bmp.Save("example.png", System.Drawing.Imaging.ImageFormat.Png);
-        }
-
-        private void button4_Click(object sender, EventArgs e)
-        {
-            this.bmp.Save("example.bmp", System.Drawing.Imaging.ImageFormat.Bmp);
-        }
-
         private void button3_Click(object sender, EventArgs e)
         {
-            this.bmp.Save("example.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+            var dlg = saveFileDialog.ShowDialog();
+            if (dlg != DialogResult.OK)
+                return;
+
+            var format = ExtensionToImageFormat(saveFileDialog.FileName);
+            bmp.Save(saveFileDialog.FileName, format);
+        }
+
+        private static ImageFormat ExtensionToImageFormat(string fileName)
+        {
+            switch (Path.GetExtension(fileName))
+            {
+                case "jpg":
+                case "jpeg":
+                    return ImageFormat.Jpeg;
+                case "png":
+                    return ImageFormat.Png;
+                case "bmp":
+                    return ImageFormat.Bmp;
+            }
+            return ImageFormat.Jpeg;
         }
     }
 }
