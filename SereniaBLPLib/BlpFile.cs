@@ -19,8 +19,6 @@
  */
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.IO;
 using System.Drawing;
@@ -102,18 +100,18 @@ namespace SereniaBLPLib
         Stream str; // Reference of the stream
         #endregion
 
-        #region Private Methods
         /// <summary>
         /// Extracts the palettized Image-Data from the given Mipmap and returns a byte-Array in the 32Bit RGBA-Format
         /// </summary>
         /// <param name="mipmap">The desired Mipmap-Level. If the given level is invalid, the smallest available level is choosen</param>
+        /// <param name="mipmapLevel"></param>
         /// <returns>Pixel-data</returns>
-        private byte[] getPictureUncompressedByteArray(int MipmapLevel)
+        private byte[] GetPictureUncompressedByteArray(int mipmapLevel)
         {
-            if (MipmapLevel >= this.MipMapCount) MipmapLevel = this.MipMapCount - 1;
-            if (MipmapLevel < 0) MipmapLevel = 0;
-            byte[] pic = new byte[((this.width * this.height) * 4) / (int)(Math.Pow(2, MipmapLevel))];
-            byte[] indices = this.getPictureData(MipmapLevel);
+            if (mipmapLevel >= this.MipMapCount) mipmapLevel = this.MipMapCount - 1;
+            if (mipmapLevel < 0) mipmapLevel = 0;
+            byte[] pic = new byte[((this.width * this.height) * 4) / (int)(Math.Pow(2, mipmapLevel))];
+            byte[] indices = this.GetPictureData(mipmapLevel);
             for (int i = 0; i < indices.Length; i++)
             {
                 pic[i * 4] = this.paletteBGRA[indices[i]].red;
@@ -127,26 +125,24 @@ namespace SereniaBLPLib
         /// <summary>
         /// Returns the raw Mipmap-Image Data. This data can either be compressed or uncompressed, depending on the Header-Data
         /// </summary>
-        /// <param name="MipmapLevel"></param>
+        /// <param name="mipmapLevel"></param>
         /// <returns></returns>
-        private byte[] getPictureData(int MipmapLevel)
+        private byte[] GetPictureData(int mipmapLevel)
         {
             if (this.str != null)
             {
                 byte[] data;
-                if (MipmapLevel >= this.MipMapCount) MipmapLevel = this.MipMapCount - 1;
-                if (MipmapLevel < 0) MipmapLevel = 0;
+                if (mipmapLevel >= this.MipMapCount) mipmapLevel = this.MipMapCount - 1;
+                if (mipmapLevel < 0) mipmapLevel = 0;
 
-                data = new byte[this.mippmapSize[MipmapLevel]];
-                this.str.Position = (int)this.mipmapOffsets[MipmapLevel];
+                data = new byte[this.mippmapSize[mipmapLevel]];
+                this.str.Position = (int)this.mipmapOffsets[mipmapLevel];
                 this.str.Read(data, 0, data.Length);
                 return data;
             }
             return null;
         }
-        #endregion
 
-        #region Public Properties
         /// <summary>
         /// Returns the amount of Mipmaps in this BLP-File
         /// </summary>
@@ -159,12 +155,10 @@ namespace SereniaBLPLib
                 return i;
             }
         }
-        #endregion
 
-        #region public Methods
-        public BlpFile(Stream _str)
+        public BlpFile(Stream stream)
         {
-            this.str = _str;
+            this.str = stream;
             byte[] buffer = new byte[4];
             // Well, have to fix this... looks weird o.O
             this.str.Read(buffer, 0, 4);
@@ -197,7 +191,7 @@ namespace SereniaBLPLib
             // Reading MipmapOffset Array
             for (int i = 0; i < 16; i++)
             {
-                _str.Read(buffer, 0, 4);
+                stream.Read(buffer, 0, 4);
                 this.mipmapOffsets[i] = BitConverter.ToUInt32(buffer, 0);
             }
 
@@ -227,9 +221,9 @@ namespace SereniaBLPLib
         /// <summary>
         /// Returns the uncompressed image as a bytarray in the 32pppRGBA-Format
         /// </summary>
-        /// <param name="MipmapLevel">The desired Mipmap-Level. If the given level is invalid, the smallest available level is choosen</param>
+        /// <param name="mipmapLevel">The desired Mipmap-Level. If the given level is invalid, the smallest available level is choosen</param>
         /// <returns></returns>
-        public byte[] getImageBytes(int MipmapLevel)
+        public byte[] GetImageBytes(int mipmapLevel)
         {
             byte[] pic;
 
@@ -238,12 +232,12 @@ namespace SereniaBLPLib
                 // Determine the correct DXT-Format
                 int flag = (this.alphaDepth > 1) ? ((this.alphaEncoding == 7) ? (int)DXTDecompression.DXTFlags.DXT5 : (int)DXTDecompression.DXTFlags.DXT3) : (int)DXTDecompression.DXTFlags.DXT1;
                 // Decompress the picture
-                DXTDecompression.decompressImage(out pic, (this.width / (int)(Math.Pow(2, MipmapLevel))), (this.height / (int)(Math.Pow(2, MipmapLevel))), this.getPictureData(MipmapLevel), flag);
+                DXTDecompression.DecompressImage(out pic, (this.width / (int)(Math.Pow(2, mipmapLevel))), (this.height / (int)(Math.Pow(2, mipmapLevel))), this.GetPictureData(mipmapLevel), flag);
             }
             else
             {
                 // Using the palette to determine the color
-                pic = this.getPictureUncompressedByteArray(MipmapLevel);
+                pic = this.GetPictureUncompressedByteArray(mipmapLevel);
             }
 
             return pic;
@@ -252,13 +246,13 @@ namespace SereniaBLPLib
         /// <summary>
         /// Converts the BLP to a System.Drawing.Bitmap
         /// </summary>
-        /// <param name="MipmapLevel">The desired Mipmap-Level. If the given level is invalid, the smallest available level is choosen</param>
+        /// <param name="mipmapLevel">The desired Mipmap-Level. If the given level is invalid, the smallest available level is choosen</param>
         /// <returns>The Bitmap</returns>
-        public Bitmap getBitmap(int MipmapLevel)
+        public Bitmap GetBitmap(int mipmapLevel)
         {
-            int x = (this.width / (int)(Math.Pow(2, MipmapLevel))), y = (this.height / (int)(Math.Pow(2, MipmapLevel)));
+            int x = (this.width / (int)(Math.Pow(2, mipmapLevel))), y = (this.height / (int)(Math.Pow(2, mipmapLevel)));
             Bitmap bmp = new Bitmap(x, y);
-            byte[] pic = getImageBytes(MipmapLevel); // This bytearray stores the Pixel-Data
+            byte[] pic = GetImageBytes(mipmapLevel); // This bytearray stores the Pixel-Data
 
             // Faster bitmap Data copy
             System.Drawing.Imaging.BitmapData bmpdata = bmp.LockBits(new Rectangle(0, 0, x, y), System.Drawing.Imaging.ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
@@ -293,13 +287,13 @@ namespace SereniaBLPLib
         /// </summary>
         public void Dispose()
         {
-            this.close();
+            this.Close();
         }
 
         /// <summary>
         /// Closes the Memorystream
         /// </summary>
-        public void close()
+        public void Close()
         {
             if (this.str != null)
             {
@@ -307,6 +301,5 @@ namespace SereniaBLPLib
                 this.str = null;
             }
         }
-        #endregion
     }
 }

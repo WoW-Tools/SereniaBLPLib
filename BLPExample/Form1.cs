@@ -25,7 +25,7 @@ namespace BLPExample
             {
                 if (this.exampleBLP != null)
                 {
-                    this.exampleBLP.close();
+                    this.exampleBLP.Close();
                     this.exampleBLP = null;
                 }
 
@@ -37,7 +37,7 @@ namespace BLPExample
                 //MessageBox.Show("Mipmap count: "+exampleBLP.MipMapCount);
 
                 // loading bitmap level 0
-                bmp = this.exampleBLP.getBitmap(0);
+                bmp = this.exampleBLP.GetBitmap(0);
 
                 g.DrawImage(bmp, 0, 0);
 

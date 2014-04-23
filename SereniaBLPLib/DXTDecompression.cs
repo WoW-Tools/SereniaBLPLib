@@ -22,15 +22,12 @@
 // http://code.google.com/p/libsquish/
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace SereniaBLPLib
 {
-    public class DXTDecompression
+    public static class DXTDecompression
     {
-        public enum DXTFlags : int
+        public enum DXTFlags
         {
             DXT1 = 1 << 0,
             DXT3 = 1 << 1,
@@ -38,7 +35,7 @@ namespace SereniaBLPLib
             // Additional Enums not implemented :o
         }
 
-        private static void decompress(ref byte[] rgba, byte[] block, int flags)
+        private static void Decompress(ref byte[] rgba, byte[] block, int flags)
         {
             // get the block locations
             byte[] colourBlock = new byte[8];
@@ -49,7 +46,7 @@ namespace SereniaBLPLib
                 Array.Copy(block, 0, colourBlock, 0, 8);
 
             // decompress color
-            decompressColor(ref rgba, colourBlock, ((flags & (int)DXTFlags.DXT1) != 0));
+            DecompressColor(ref rgba, colourBlock, ((flags & (int)DXTFlags.DXT1) != 0));
 
             // decompress alpha separately if necessary
             if ((flags & (int)DXTFlags.DXT3) != 0)
@@ -137,14 +134,14 @@ namespace SereniaBLPLib
             }
         }
 
-        private static void decompressColor(ref byte[] rgba, byte[] block, bool isDxt1)
+        private static void DecompressColor(ref byte[] rgba, byte[] block, bool isDxt1)
         {
             byte[] bytes = block;
 
             // Unpack Endpoints
             byte[] codes = new byte[16];
-            int a = unpack565(bytes, 0, ref codes, 0);
-            int b = unpack565(bytes, 2, ref codes, 4);
+            int a = Unpack565(bytes, 0, ref codes, 0);
+            int b = Unpack565(bytes, 2, ref codes, 4);
 
             // generate Midpoints
             for (int i = 0; i < 3; i++)
@@ -191,7 +188,7 @@ namespace SereniaBLPLib
             }
         }
 
-        private static int unpack565(byte[] packed, int packed_offset, ref byte[] colour, int colour_offset)
+        private static int Unpack565(byte[] packed, int packed_offset, ref byte[] colour, int colour_offset)
         {
             // Build packed value
             int value = (int)packed[0 + packed_offset] | ((int)packed[1 + packed_offset] << 8);
@@ -210,7 +207,7 @@ namespace SereniaBLPLib
             return value;
         }
 
-        public static void decompressImage(out byte[] rgba, int width, int height, byte[] blocks, int flags)
+        public static void DecompressImage(out byte[] rgba, int width, int height, byte[] blocks, int flags)
         {
             rgba = new byte[width * height * 4];
 
@@ -231,7 +228,7 @@ namespace SereniaBLPLib
                     if (sourceBlock.Length == sourceBlock_pos) continue;
                     Array.Copy(sourceBlock, sourceBlock_pos, sourceBlockBuffer, 0, bytesPerBlock);
                     //sourceBlock.CopyTo(sourceBlockBuffer, sourceBlock_pos);
-                    decompress(ref targetRGBA, sourceBlockBuffer, flags);
+                    Decompress(ref targetRGBA, sourceBlockBuffer, flags);
 
                     // Write the decompressed pixels to the correct image locations
                     byte[] sourcePixel = new byte[4];
