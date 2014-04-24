@@ -84,7 +84,6 @@ namespace SereniaBLPLib
 
     public class BlpFile : IDisposable
     {
-        #region Private Fields
         uint type; // compression: 0 = JPEG Compression, 1 = Uncompressed or DirectX Compression
         byte encoding; // 1 = Uncompressed, 2 = DirectX Compressed
         byte alphaDepth; // 0 = no alpha, 1 = 1 Bit, 4 = Bit (only DXT3), 8 = 8 Bit Alpha
@@ -98,21 +97,19 @@ namespace SereniaBLPLib
         ARGBColor8[] paletteBGRA = new ARGBColor8[256]; // The color-palette for non-compressed pictures
 
         Stream str; // Reference of the stream
-        #endregion
 
         /// <summary>
         /// Extracts the palettized Image-Data from the given Mipmap and returns a byte-Array in the 32Bit RGBA-Format
         /// </summary>
         /// <param name="mipmap">The desired Mipmap-Level. If the given level is invalid, the smallest available level is choosen</param>
-        /// <param name="mipmapLevel"></param>
+        /// <param name="w"></param>
+        /// <param name="h"></param>
+        /// <param name="data"></param>
         /// <returns>Pixel-data</returns>
-        private byte[] GetPictureUncompressedByteArray(int mipmapLevel)
+        private byte[] GetPictureUncompressedByteArray(int w, int h, byte[] data)
         {
-            if (mipmapLevel >= this.MipMapCount) mipmapLevel = this.MipMapCount - 1;
-            if (mipmapLevel < 0) mipmapLevel = 0;
-            byte[] data = this.GetPictureData(mipmapLevel);
-            var length = width * height;
-            byte[] pic = new byte[length * 4 / (int)(Math.Pow(2, mipmapLevel))];
+            int length = w * h;
+            byte[] pic = new byte[length * 4 ];
             for (int i = 0; i < length; i++)
             {
                 pic[i * 4] = paletteBGRA[data[i]].red;
@@ -131,12 +128,12 @@ namespace SereniaBLPLib
                     return 0xFF;
                 case 1:
                 {
-                    var b = data[alphaStart + (index/8)];
+                    byte b = data[alphaStart + (index/8)];
                     return (byte) ((b & (0x01 << (index % 8))) == 0 ? 0x00 : 0xff);
                 }
                 case 4:
                 {
-                    var b = data[alphaStart + (index / 2)];
+                    byte b = data[alphaStart + (index / 2)];
                     return (byte) (index%2 == 0 ? (b & 0x0F) << 4 : b & 0xF0);
                 }
                 case 8:
@@ -153,11 +150,7 @@ namespace SereniaBLPLib
         {
             if (this.str != null)
             {
-                byte[] data;
-                if (mipmapLevel >= this.MipMapCount) mipmapLevel = this.MipMapCount - 1;
-                if (mipmapLevel < 0) mipmapLevel = 0;
-
-                data = new byte[this.mippmapSize[mipmapLevel]];
+                byte[] data = new byte[this.mippmapSize[mipmapLevel]];
                 this.str.Position = (int)this.mipmapOffsets[mipmapLevel];
                 this.str.Read(data, 0, data.Length);
                 return data;
@@ -243,25 +236,20 @@ namespace SereniaBLPLib
         /// <summary>
         /// Returns the uncompressed image as a bytarray in the 32pppRGBA-Format
         /// </summary>
-        /// <param name="mipmapLevel">The desired Mipmap-Level. If the given level is invalid, the smallest available level is choosen</param>
-        /// <returns></returns>
-        public byte[] GetImageBytes(int mipmapLevel)
+        private byte[] GetImageBytes(int w, int h, byte[] data)
         {
             byte[] pic;
-
             switch (encoding)
             {
                 case 1:
-                    pic = GetPictureUncompressedByteArray(mipmapLevel);
+                    pic = GetPictureUncompressedByteArray(w, h, data);
                     break;
                 case 2:
-                    // Determine the correct DXT-Format
                     int flag = (alphaDepth > 1) ? ((alphaEncoding == 7) ? (int) DXTDecompression.DXTFlags.DXT5 : (int) DXTDecompression.DXTFlags.DXT3) : (int) DXTDecompression.DXTFlags.DXT1;
-                    // Decompress the picture
-                    DXTDecompression.DecompressImage(out pic, width/(int) (Math.Pow(2, mipmapLevel)), height/(int) (Math.Pow(2, mipmapLevel)), GetPictureData(mipmapLevel), flag);
+                    pic = DXTDecompression.DecompressImage(w, h, data, flag);
                     break;
                 case 3:
-                    pic = GetPictureData(mipmapLevel);
+                    pic = data;
                     break;
                 default:
                     pic = new byte[0];
@@ -278,34 +266,23 @@ namespace SereniaBLPLib
         /// <returns>The Bitmap</returns>
         public Bitmap GetBitmap(int mipmapLevel)
         {
-            int x = (this.width / (int)(Math.Pow(2, mipmapLevel))), y = (this.height / (int)(Math.Pow(2, mipmapLevel)));
-            Bitmap bmp = new Bitmap(x, y);
-            byte[] pic = GetImageBytes(mipmapLevel); // This bytearray stores the Pixel-Data
+            if (mipmapLevel >= MipMapCount) mipmapLevel = MipMapCount - 1;
+            if (mipmapLevel < 0) mipmapLevel = 0;
+
+            int scale = (int)Math.Pow(2, mipmapLevel);
+            int w = width / scale;
+            int h = height / scale;
+            Bitmap bmp = new Bitmap(w, h);
+
+            byte[] data = GetPictureData(mipmapLevel);
+            byte[] pic = GetImageBytes(w, h, data); // This bytearray stores the Pixel-Data
 
             // Faster bitmap Data copy
-            System.Drawing.Imaging.BitmapData bmpdata = bmp.LockBits(new Rectangle(0, 0, x, y), System.Drawing.Imaging.ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            System.Drawing.Imaging.BitmapData bmpdata = bmp.LockBits(new Rectangle(0, 0, w, h), System.Drawing.Imaging.ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
             // when we want to copy the pixeldata directly into the bitmap, we have to convert them into BGRA befor doing so
             ARGBColor8.convertToBGRA(ref pic);
             System.Runtime.InteropServices.Marshal.Copy(pic, 0, bmpdata.Scan0, pic.Length); // copy! :D
             bmp.UnlockBits(bmpdata);
-
-            /*
-            // Pushing everything into the Bitmap
-            // This technique is realy slow and should not be used
-            for (int y = 0; y < this.height; y++)
-            {
-                for (int x = 0; x < this.width; x++)
-                {
-                    int r, g, b, a;
-                    r = pic[(y * this.width + x) * 4 + 0];
-                    g = pic[(y * this.width + x) * 4 + 1];
-                    b = pic[(y * this.width + x) * 4 + 2];
-                    a = pic[(y * this.width + x) * 4 + 3];
-                    Color col = Color.FromArgb(a, r, g, b);
-                    bmp.SetPixel(x, y, col);
-                }
-            }
-            */
 
             return bmp;
         }

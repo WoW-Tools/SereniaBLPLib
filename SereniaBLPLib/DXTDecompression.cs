@@ -207,14 +207,14 @@ namespace SereniaBLPLib
             return value;
         }
 
-        public static void DecompressImage(out byte[] rgba, int width, int height, byte[] blocks, int flags)
+        public static byte[] DecompressImage(int width, int height, byte[] data, int flags)
         {
-            rgba = new byte[width * height * 4];
+            byte[] rgba = new byte[width*height*4];
 
             // initialise the block input
-            byte[] sourceBlock = blocks;
+            byte[] sourceBlock = data;
             int sourceBlock_pos = 0;
-            int bytesPerBlock = ((flags & (int)DXTFlags.DXT1) != 0) ? 8 : 16;
+            int bytesPerBlock = ((flags & (int) DXTFlags.DXT1) != 0) ? 8 : 16;
 
             // loop over blocks
             for (int y = 0; y < height; y += 4)
@@ -222,7 +222,7 @@ namespace SereniaBLPLib
                 for (int x = 0; x < width; x += 4)
                 {
                     // decompress the block
-                    byte[] targetRGBA = new byte[4 * 16];
+                    byte[] targetRGBA = new byte[4*16];
                     int targetRGBA_pos = 0;
                     byte[] sourceBlockBuffer = new byte[bytesPerBlock]; // größe korrekt?
                     if (sourceBlock.Length == sourceBlock_pos) continue;
@@ -241,7 +241,7 @@ namespace SereniaBLPLib
                             int sy = y + py;
                             if (sx < width && sy < height)
                             {
-                                int targetPixel = 4 * (width * sy + sx);
+                                int targetPixel = 4*(width*sy + sx);
 
                                 //targetRGBA.CopyTo(sourcePixel, targetRGBA_pos);
                                 Array.Copy(targetRGBA, targetRGBA_pos, sourcePixel, 0, 4);
@@ -260,6 +260,7 @@ namespace SereniaBLPLib
                     sourceBlock_pos += bytesPerBlock;
                 }
             }
+            return rgba;
         }
     }
 }
