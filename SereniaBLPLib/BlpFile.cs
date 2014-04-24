@@ -130,9 +130,15 @@ namespace SereniaBLPLib
                 default:
                     return 0xFF;
                 case 1:
-                    return (byte)(((data[alphaStart  + (index / 8)] & (0x01 << (alphaStart % 8))) == 0) ? 0x00 : 0xff);
+                {
+                    var b = data[alphaStart + (index/8)];
+                    return (byte) ((b & (0x01 << (index % 8))) == 0 ? 0x00 : 0xff);
+                }
                 case 4:
-                    return (byte)((data[alphaStart  + (index / 2)] & (0x01 << (alphaStart % 2))) << 1);
+                {
+                    var b = data[alphaStart + (index / 2)];
+                    return (byte) (index%2 == 0 ? (b & 0x0F) << 4 : b & 0xF0);
+                }
                 case 8:
                     return data[alphaStart + index];
             }
