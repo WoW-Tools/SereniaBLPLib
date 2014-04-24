@@ -249,17 +249,23 @@ namespace SereniaBLPLib
         {
             byte[] pic;
 
-            if (this.encoding == 2)
+            switch (encoding)
             {
-                // Determine the correct DXT-Format
-                int flag = (this.alphaDepth > 1) ? ((this.alphaEncoding == 7) ? (int)DXTDecompression.DXTFlags.DXT5 : (int)DXTDecompression.DXTFlags.DXT3) : (int)DXTDecompression.DXTFlags.DXT1;
-                // Decompress the picture
-                DXTDecompression.DecompressImage(out pic, (this.width / (int)(Math.Pow(2, mipmapLevel))), (this.height / (int)(Math.Pow(2, mipmapLevel))), this.GetPictureData(mipmapLevel), flag);
-            }
-            else
-            {
-                // Using the palette to determine the color
-                pic = this.GetPictureUncompressedByteArray(mipmapLevel);
+                case 1:
+                    pic = GetPictureUncompressedByteArray(mipmapLevel);
+                    break;
+                case 2:
+                    // Determine the correct DXT-Format
+                    int flag = (alphaDepth > 1) ? ((alphaEncoding == 7) ? (int) DXTDecompression.DXTFlags.DXT5 : (int) DXTDecompression.DXTFlags.DXT3) : (int) DXTDecompression.DXTFlags.DXT1;
+                    // Decompress the picture
+                    DXTDecompression.DecompressImage(out pic, width/(int) (Math.Pow(2, mipmapLevel)), height/(int) (Math.Pow(2, mipmapLevel)), GetPictureData(mipmapLevel), flag);
+                    break;
+                case 3:
+                    pic = GetPictureData(mipmapLevel);
+                    break;
+                default:
+                    pic = new byte[0];
+                    break;
             }
 
             return pic;
