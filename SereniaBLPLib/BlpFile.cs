@@ -110,16 +110,32 @@ namespace SereniaBLPLib
         {
             if (mipmapLevel >= this.MipMapCount) mipmapLevel = this.MipMapCount - 1;
             if (mipmapLevel < 0) mipmapLevel = 0;
-            byte[] pic = new byte[((this.width * this.height) * 4) / (int)(Math.Pow(2, mipmapLevel))];
-            byte[] indices = this.GetPictureData(mipmapLevel);
-            for (int i = 0; i < indices.Length; i++)
+            byte[] data = this.GetPictureData(mipmapLevel);
+            var length = width * height;
+            byte[] pic = new byte[length * 4 / (int)(Math.Pow(2, mipmapLevel))];
+            for (int i = 0; i < length; i++)
             {
-                pic[i * 4] = this.paletteBGRA[indices[i]].red;
-                pic[i * 4 + 1] = this.paletteBGRA[indices[i]].green;
-                pic[i * 4 + 2] = this.paletteBGRA[indices[i]].blue;
-                pic[i * 4 + 3] = (this.alphaDepth > 0) ? this.paletteBGRA[indices[i]].alpha : (byte)255;
+                pic[i * 4] = paletteBGRA[data[i]].red;
+                pic[i * 4 + 1] = paletteBGRA[data[i]].green;
+                pic[i * 4 + 2] = paletteBGRA[data[i]].blue;
+                pic[i * 4 + 3] = GetAlpha(data, i, length);
             }
             return pic;
+        }
+
+        private byte GetAlpha(byte[] data, int index, int alphaStart)
+        {
+            switch (alphaDepth)
+            {
+                default:
+                    return 0xFF;
+                case 1:
+                    return (byte)(((data[alphaStart  + (index / 8)] & (0x01 << (alphaStart % 8))) == 0) ? 0x00 : 0xff);
+                case 4:
+                    return (byte)((data[alphaStart  + (index / 2)] & (0x01 << (alphaStart % 2))) << 1);
+                case 8:
+                    return data[alphaStart + index];
+            }
         }
 
         /// <summary>
