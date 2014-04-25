@@ -271,7 +271,9 @@ namespace SereniaBLPLib
 
             int scale = (int)Math.Pow(2, mipmapLevel);
             int w = width / scale;
+            if (w < 1) w = 1;
             int h = height / scale;
+            if (h < 1) h = 1;
             Bitmap bmp = new Bitmap(w, h);
 
             byte[] data = GetPictureData(mipmapLevel);
