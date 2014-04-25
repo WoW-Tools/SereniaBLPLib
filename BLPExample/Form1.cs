@@ -4,6 +4,7 @@ using System.Drawing.Imaging;
 using System.Windows.Forms;
 
 using System.IO;
+using SereniaBLPLib;
 
 namespace BLPExample
 {
@@ -12,34 +13,28 @@ namespace BLPExample
         public Form1()
         {
             InitializeComponent();
-            this.g = panel1.CreateGraphics();
         }
 
-        SereniaBLPLib.BlpFile exampleBLP;
         Bitmap bmp;
-        Graphics g;
 
-        private void button1_Click(object sender, EventArgs e)
+        private void OpenClick(object sender, EventArgs e)
         {
             try
             {
-                if (this.exampleBLP != null)
-                {
-                    this.exampleBLP.Close();
-                    this.exampleBLP = null;
-                }
-
                 var dlg = openFileDialog.ShowDialog();
                 if (dlg != DialogResult.OK)
                     return;
-                FileStream file = new FileStream(openFileDialog.FileName, FileMode.Open);
-                this.exampleBLP = new SereniaBLPLib.BlpFile(file);
-                //MessageBox.Show("Mipmap count: "+exampleBLP.MipMapCount);
 
-                // loading bitmap level 0
-                bmp = this.exampleBLP.GetBitmap(0);
+                var file = openFileDialog.OpenFile();
 
-                g.DrawImage(bmp, 0, 0);
+                using (var blp = new BlpFile(file))
+                {
+                    bmp = blp.GetBitmap(0);
+                }
+
+                var graphics = panel1.CreateGraphics();
+                graphics.Clear(panel1.BackColor);
+                graphics.DrawImage(bmp, 0, 0);
 
                 button3.Enabled = true;                
             }
@@ -49,7 +44,7 @@ namespace BLPExample
             }
         }
 
-        private void button3_Click(object sender, EventArgs e)
+        private void SaveAsClick(object sender, EventArgs e)
         {
             var dlg = saveFileDialog.ShowDialog();
             if (dlg != DialogResult.OK)
@@ -72,6 +67,11 @@ namespace BLPExample
                     return ImageFormat.Bmp;
             }
             return ImageFormat.Jpeg;
+        }
+
+        private void PanelPaint(object sender, PaintEventArgs e)
+        {
+            if (bmp != null) e.Graphics.DrawImage(bmp, 0, 0);
         }
     }
 }
