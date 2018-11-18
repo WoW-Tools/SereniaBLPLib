@@ -1,10 +1,9 @@
-﻿using System;
+﻿using SereniaBLPLib;
+using System;
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.Windows.Forms;
-
 using System.IO;
-using SereniaBLPLib;
+using System.Windows.Forms;
 
 namespace BLPExample
 {
@@ -36,9 +35,9 @@ namespace BLPExample
                 graphics.Clear(panel1.BackColor);
                 graphics.DrawImage(bmp, 0, 0);
 
-                button3.Enabled = true;                
+                button3.Enabled = true;
             }
-            catch (FileNotFoundException fe)
+            catch (FileNotFoundException)
             {
                 MessageBox.Show("The 'example.blp' was not found!");
             }
