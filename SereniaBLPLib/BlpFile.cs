@@ -56,8 +56,8 @@ namespace SereniaBLPLib
 
     public sealed class BlpFile : IDisposable
     {
-        private readonly uint type; // compression: 0 = JPEG Compression, 1 = Uncompressed or DirectX Compression
-        private readonly byte encoding; // 1 = Uncompressed, 2 = DirectX Compressed
+        private readonly uint formatVersion; // compression: 0 = JPEG Compression, 1 = Uncompressed or DirectX Compression
+        private readonly byte colorEncoding; // 1 = Uncompressed, 2 = DirectX Compressed
         private readonly byte alphaDepth; // 0 = no alpha, 1 = 1 Bit, 4 = Bit (only DXT3), 8 = 8 Bit Alpha
         private readonly byte alphaEncoding; // 0: DXT1 alpha (0 or 1 Bit alpha), 1 = DXT2/3 alpha (4 Bit), 7: DXT4/5 (interpolated alpha)
         private readonly byte hasMipmaps; // If true (1), then there are Mipmaps
@@ -154,13 +154,13 @@ namespace SereniaBLPLib
                     throw new Exception("Invalid BLP Format");
 
                 // Reading type
-                type = br.ReadUInt32();
+                formatVersion = br.ReadUInt32();
 
-                if (type != 1)
-                    throw new Exception("Invalid BLP-Type! Should be 1 but " + type + " was found");
+                if (formatVersion != 1)
+                    throw new Exception("Invalid BLP-Type! Should be 1 but " + formatVersion + " was found");
 
                 // Reading encoding, alphaBitDepth, alphaEncoding and hasMipmaps
-                encoding = br.ReadByte();
+                colorEncoding = br.ReadByte();
                 alphaDepth = br.ReadByte();
                 alphaEncoding = br.ReadByte();
                 hasMipmaps = br.ReadByte();
@@ -178,7 +178,7 @@ namespace SereniaBLPLib
                     mipMapSize[i] = br.ReadUInt32();
 
                 // When encoding is 1, there is no image compression and we have to read a color palette
-                if (encoding == 1)
+                if (colorEncoding == 1)
                 {
                     // Reading palette
                     for (int i = 0; i < 256; i++)
@@ -198,7 +198,7 @@ namespace SereniaBLPLib
         /// </summary>
         private byte[] GetImageBytes(int w, int h, byte[] data)
         {
-            switch (encoding)
+            switch (colorEncoding)
             {
                 case 1:
                     return GetPictureUncompressedByteArray(w, h, data);
@@ -219,7 +219,7 @@ namespace SereniaBLPLib
         /// <returns>The Bitmap</returns>
         public Bitmap GetBitmap(int mipmapLevel)
         {
-            byte[] pic = GetPixels(mipmapLevel, out int w, out int h, true);
+            byte[] pic = GetPixels(mipmapLevel, out int w, out int h, colorEncoding == 3 ? false : true);
 
             Bitmap bmp = new Bitmap(w, h);
 
@@ -233,7 +233,7 @@ namespace SereniaBLPLib
 
         public Image<Rgba32> GetImage(int mipmapLevel)
         {
-            byte[] pic = GetPixels(mipmapLevel, out int w, out int h, false);
+            byte[] pic = GetPixels(mipmapLevel, out int w, out int h, colorEncoding == 3 ? true : false);
 
             var image = SixLabors.ImageSharp.Image.LoadPixelData<Rgba32>(pic, w, h);
 
