@@ -150,35 +150,56 @@ namespace SereniaBLPLib
             using (BinaryReader br = new BinaryReader(stream, Encoding.ASCII, true))
             {
                 // Checking for correct Magic-Code
-                if (br.ReadUInt32() != 0x32504c42)
-                    throw new Exception("Invalid BLP Format");
-
-                // Reading type
+                uint magicCode = br.ReadUInt32();
                 formatVersion = br.ReadUInt32();
 
-                if (formatVersion != 1)
-                    throw new Exception("Invalid BLP-Type! Should be 1 but " + formatVersion + " was found");
+                // Version 2
+                if (magicCode == 0x32504c42 && formatVersion == 1)
+                {
+                    // Reading encoding, alphaBitDepth, alphaEncoding and hasMipmaps
+                    colorEncoding = br.ReadByte();
+                    alphaDepth = br.ReadByte();
+                    alphaEncoding = br.ReadByte();
+                    hasMipmaps = br.ReadByte();
 
-                // Reading encoding, alphaBitDepth, alphaEncoding and hasMipmaps
-                colorEncoding = br.ReadByte();
-                alphaDepth = br.ReadByte();
-                alphaEncoding = br.ReadByte();
-                hasMipmaps = br.ReadByte();
+                    // Reading width and height
+                    width = br.ReadInt32();
+                    height = br.ReadInt32();
+                }
 
-                // Reading width and height
-                width = br.ReadInt32();
-                height = br.ReadInt32();
+                // Version 1
+                else if (magicCode == 0x31504c42 && formatVersion == 1)
+                {
+                    alphaDepth = (byte)br.ReadInt32();
+                    colorEncoding = 1;
 
-                // Reading MipmapOffset Array
-                for (int i = 0; i < 16; i++)
-                    mipmapOffsets[i] = br.ReadUInt32();
+                    // Reading width and height
+                    width = br.ReadInt32();
+                    height = br.ReadInt32();
 
-                // Reading MipmapSize Array
-                for (int i = 0; i < 16; i++)
-                    mipMapSize[i] = br.ReadUInt32();
+                    // Read the extra and hasMipMaps
+                    br.ReadInt32();
+                    hasMipmaps = (byte)br.ReadInt32();
+                }
+
+                else
+                {
+                    throw new Exception("Invalid BLP Format");
+                }
+
+                if(hasMipmaps != 0)
+                {
+                    // Reading MipmapOffset Array
+                    for (int i = 0; i < 16; i++)
+                        mipmapOffsets[i] = br.ReadUInt32();
+
+                    // Reading MipmapSize Array
+                    for (int i = 0; i < 16; i++)
+                        mipMapSize[i] = br.ReadUInt32();
+                }
 
                 // When encoding is 1, there is no image compression and we have to read a color palette
-                if (colorEncoding == 1)
+                if (formatVersion == 1)
                 {
                     // Reading palette
                     for (int i = 0; i < 256; i++)
