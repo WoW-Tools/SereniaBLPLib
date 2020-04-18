@@ -19,6 +19,7 @@
  */
 
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Advanced;
 using SixLabors.ImageSharp.PixelFormats;
 using System;
 using System.Drawing;
@@ -32,10 +33,10 @@ namespace SereniaBLPLib
     // Some Helper Struct to store Color-Data
     public struct ARGBColor8
     {
-        public byte red;
-        public byte green;
-        public byte blue;
-        public byte alpha;
+        public byte R;
+        public byte G;
+        public byte B;
+        public byte A;
 
         /// <summary>
         /// Converts the given Pixel-Array into the BGRA-Format
@@ -54,18 +55,42 @@ namespace SereniaBLPLib
         }
     }
 
+    public enum BlpColorEncoding : byte
+    {
+        Jpeg = 0,
+        Palette = 1,
+        Dxt = 2,
+        Argb8888 = 3,
+        Argb8888_dup = 4
+    }
+
+    public enum BlpPixelFormat : byte
+    {
+        Dxt1 = 0,
+        Dxt3 = 1,
+        Argb8888 = 2,
+        Argb1555 = 3,
+        Argb4444 = 4,
+        Rgb565 = 5,
+        A8 = 6,
+        Dxt5 = 7,
+        Unspecified = 8,
+        Argb2565 = 9,
+        Bc5 = 11
+    }
+
     public sealed class BlpFile : IDisposable
     {
         private readonly uint formatVersion; // compression: 0 = JPEG Compression, 1 = Uncompressed or DirectX Compression
-        private readonly byte colorEncoding; // 1 = Uncompressed, 2 = DirectX Compressed
-        private readonly byte alphaDepth; // 0 = no alpha, 1 = 1 Bit, 4 = Bit (only DXT3), 8 = 8 Bit Alpha
-        private readonly byte alphaEncoding; // 0: DXT1 alpha (0 or 1 Bit alpha), 1 = DXT2/3 alpha (4 Bit), 7: DXT4/5 (interpolated alpha)
-        private readonly byte hasMipmaps; // If true (1), then there are Mipmaps
+        private readonly BlpColorEncoding colorEncoding; // 1 = Uncompressed, 2 = DirectX Compressed
+        private readonly byte alphaSize; // 0 = no alpha, 1 = 1 Bit, 4 = Bit (only DXT3), 8 = 8 Bit Alpha
+        private readonly BlpPixelFormat preferredFormat; // 0: DXT1 alpha (0 or 1 Bit alpha), 1 = DXT2/3 alpha (4 Bit), 7: DXT4/5 (interpolated alpha)
+        private readonly byte hasMips; // If true (1), then there are Mipmaps
         private readonly int width; // X Resolution of the biggest Mipmap
         private readonly int height; // Y Resolution of the biggest Mipmap
 
-        private readonly uint[] mipmapOffsets = new uint[16]; // Offset for every Mipmap level. If 0 = no more mitmap level
-        private readonly uint[] mipMapSize = new uint[16]; // Size for every level
+        private readonly uint[] mipOffsets = new uint[16]; // Offset for every Mipmap level. If 0 = no more mitmap level
+        private readonly uint[] mipSizes = new uint[16]; // Size for every level
         private readonly ARGBColor8[] paletteBGRA = new ARGBColor8[256]; // The color-palette for non-compressed pictures
 
         private Stream str; // Reference of the stream
@@ -84,9 +109,9 @@ namespace SereniaBLPLib
             byte[] pic = new byte[length * 4];
             for (int i = 0; i < length; i++)
             {
-                pic[i * 4] = paletteBGRA[data[i]].red;
-                pic[i * 4 + 1] = paletteBGRA[data[i]].green;
-                pic[i * 4 + 2] = paletteBGRA[data[i]].blue;
+                pic[i * 4] = paletteBGRA[data[i]].R;
+                pic[i * 4 + 1] = paletteBGRA[data[i]].G;
+                pic[i * 4 + 2] = paletteBGRA[data[i]].B;
                 pic[i * 4 + 3] = GetAlpha(data, i, length);
             }
             return pic;
@@ -94,7 +119,7 @@ namespace SereniaBLPLib
 
         private byte GetAlpha(byte[] data, int index, int alphaStart)
         {
-            switch (alphaDepth)
+            switch (alphaSize)
             {
                 default:
                     return 0xFF;
@@ -122,8 +147,8 @@ namespace SereniaBLPLib
         {
             if (str != null)
             {
-                byte[] data = new byte[mipMapSize[mipmapLevel]];
-                str.Position = mipmapOffsets[mipmapLevel];
+                byte[] data = new byte[mipSizes[mipmapLevel]];
+                str.Position = mipOffsets[mipmapLevel];
                 str.Read(data, 0, data.Length);
                 return data;
             }
@@ -138,10 +163,14 @@ namespace SereniaBLPLib
             get
             {
                 int i = 0;
-                while (mipmapOffsets[i] != 0) i++;
+                while (mipOffsets[i] != 0) i++;
                 return i;
             }
         }
+
+        private const int BLP0Magic = 0x30504c42;
+        private const int BLP1Magic = 0x31504c42;
+        private const int BLP2Magic = 0x32504c42;
 
         public BlpFile(Stream stream)
         {
@@ -150,62 +179,97 @@ namespace SereniaBLPLib
             using (BinaryReader br = new BinaryReader(stream, Encoding.ASCII, true))
             {
                 // Checking for correct Magic-Code
-                if (br.ReadUInt32() != 0x32504c42)
+                int format = br.ReadInt32();
+                if (format != BLP0Magic && format != BLP1Magic && format != BLP2Magic)
                     throw new Exception("Invalid BLP Format");
 
-                // Reading type
-                formatVersion = br.ReadUInt32();
-
-                if (formatVersion != 1)
-                    throw new Exception("Invalid BLP-Type! Should be 1 but " + formatVersion + " was found");
-
-                // Reading encoding, alphaBitDepth, alphaEncoding and hasMipmaps
-                colorEncoding = br.ReadByte();
-                alphaDepth = br.ReadByte();
-                alphaEncoding = br.ReadByte();
-                hasMipmaps = br.ReadByte();
-
-                // Reading width and height
-                width = br.ReadInt32();
-                height = br.ReadInt32();
+                switch (format)
+                {
+                    case BLP0Magic:
+                    case BLP1Magic:
+                        // Reading encoding, alphaBitDepth, alphaEncoding and hasMipmaps
+                        colorEncoding = (BlpColorEncoding)br.ReadInt32();
+                        alphaSize = (byte)br.ReadInt32();
+                        // Reading width and height
+                        width = br.ReadInt32();
+                        height = br.ReadInt32();
+                        preferredFormat = (BlpPixelFormat)br.ReadInt32();
+                        hasMips = (byte)br.ReadInt32();
+                        break;
+                    case BLP2Magic:
+                        formatVersion = br.ReadUInt32();// Reading type
+                        if (formatVersion != 1)
+                            throw new Exception("Invalid BLP-Type! Should be 1 but " + formatVersion + " was found");
+                        // Reading encoding, alphaBitDepth, alphaEncoding and hasMipmaps
+                        colorEncoding = (BlpColorEncoding)br.ReadByte();
+                        alphaSize = br.ReadByte();
+                        preferredFormat = (BlpPixelFormat)br.ReadByte();
+                        hasMips = br.ReadByte();
+                        // Reading width and height
+                        width = br.ReadInt32();
+                        height = br.ReadInt32();
+                        break;
+                }
 
                 // Reading MipmapOffset Array
                 for (int i = 0; i < 16; i++)
-                    mipmapOffsets[i] = br.ReadUInt32();
+                    mipOffsets[i] = br.ReadUInt32();
 
                 // Reading MipmapSize Array
                 for (int i = 0; i < 16; i++)
-                    mipMapSize[i] = br.ReadUInt32();
+                    mipSizes[i] = br.ReadUInt32();
 
                 // When encoding is 1, there is no image compression and we have to read a color palette
-                if (colorEncoding == 1)
+                if (colorEncoding == BlpColorEncoding.Palette)
                 {
                     // Reading palette
                     for (int i = 0; i < 256; i++)
                     {
                         int color = br.ReadInt32();
-                        paletteBGRA[i].blue = (byte)((color >> 0) & 0xFF);
-                        paletteBGRA[i].green = (byte)((color >> 8) & 0xFF);
-                        paletteBGRA[i].red = (byte)((color >> 16) & 0xFF);
-                        paletteBGRA[i].alpha = (byte)((color >> 24) & 0xFF);
+                        paletteBGRA[i].B = (byte)((color >> 0) & 0xFF);
+                        paletteBGRA[i].G = (byte)((color >> 8) & 0xFF);
+                        paletteBGRA[i].R = (byte)((color >> 16) & 0xFF);
+                        paletteBGRA[i].A = (byte)((color >> 24) & 0xFF);
                     }
+                }
+                else if (colorEncoding == BlpColorEncoding.Jpeg)
+                {
+                    int jpegHeaderSize = br.ReadInt32();
+                    byte[] jpegHeader = br.ReadBytes(jpegHeaderSize);
+                    // what do we do with this header?
                 }
             }
         }
 
         /// <summary>
-        /// Returns the uncompressed image as a bytarray in the 32pppRGBA-Format
+        /// Returns the uncompressed image as a byte array in the 32pppRGBA-Format
         /// </summary>
         private byte[] GetImageBytes(int w, int h, byte[] data)
         {
             switch (colorEncoding)
             {
-                case 1:
+                case BlpColorEncoding.Jpeg:
+                    {
+                        using (var img = SixLabors.ImageSharp.Image.Load<Rgba32>(data))
+                        {
+                            var map = img.GetPixelSpan();
+                            byte[] rgba = new byte[width * height * 4];
+                            for (int i = 0; i < rgba.Length; i += 4)
+                            {
+                                rgba[i + 0] = map[i / 4].R;
+                                rgba[i + 1] = map[i / 4].G;
+                                rgba[i + 2] = map[i / 4].B;
+                                rgba[i + 3] = map[i / 4].A;
+                            }
+                            return rgba;
+                        }
+                    }
+                case BlpColorEncoding.Palette:
                     return GetPictureUncompressedByteArray(w, h, data);
-                case 2:
-                    DXTDecompression.DXTFlags flag = (alphaDepth > 1) ? ((alphaEncoding == 7) ? DXTDecompression.DXTFlags.DXT5 : DXTDecompression.DXTFlags.DXT3) : DXTDecompression.DXTFlags.DXT1;
+                case BlpColorEncoding.Dxt:
+                    DXTDecompression.DXTFlags flag = (alphaSize > 1) ? ((preferredFormat == BlpPixelFormat.Dxt5) ? DXTDecompression.DXTFlags.DXT5 : DXTDecompression.DXTFlags.DXT3) : DXTDecompression.DXTFlags.DXT1;
                     return DXTDecompression.DecompressImage(w, h, data, flag);
-                case 3:
+                case BlpColorEncoding.Argb8888:
                     return data;
                 default:
                     return new byte[0];
@@ -219,7 +283,7 @@ namespace SereniaBLPLib
         /// <returns>The Bitmap</returns>
         public Bitmap GetBitmap(int mipmapLevel)
         {
-            byte[] pic = GetPixels(mipmapLevel, out int w, out int h, colorEncoding == 3 ? false : true);
+            byte[] pic = GetPixels(mipmapLevel, out int w, out int h, colorEncoding == BlpColorEncoding.Argb8888 ? false : true);
 
             Bitmap bmp = new Bitmap(w, h);
 
@@ -231,9 +295,12 @@ namespace SereniaBLPLib
             return bmp;
         }
 
+        /// <summary>
+        /// Converts the BLP to a SixLabors.ImageSharp.Image
+        /// </summary>
         public Image<Rgba32> GetImage(int mipmapLevel)
         {
-            byte[] pic = GetPixels(mipmapLevel, out int w, out int h, colorEncoding == 3 ? true : false);
+            byte[] pic = GetPixels(mipmapLevel, out int w, out int h, colorEncoding == BlpColorEncoding.Argb8888 ? true : false);
 
             var image = SixLabors.ImageSharp.Image.LoadPixelData<Rgba32>(pic, w, h);
 
@@ -247,8 +314,10 @@ namespace SereniaBLPLib
         /// <returns></returns>
         public byte[] GetPixels(int mipmapLevel, out int w, out int h, bool bgra = true)
         {
-            if (mipmapLevel >= MipMapCount) mipmapLevel = MipMapCount - 1;
-            if (mipmapLevel < 0) mipmapLevel = 0;
+            if (mipmapLevel >= MipMapCount)
+                mipmapLevel = MipMapCount - 1;
+            if (mipmapLevel < 0)
+                mipmapLevel = 0;
 
             int scale = (int)Math.Pow(2, mipmapLevel);
             w = width / scale;
@@ -257,11 +326,8 @@ namespace SereniaBLPLib
             byte[] data = GetPictureData(mipmapLevel);
             byte[] pic = GetImageBytes(w, h, data); // This bytearray stores the Pixel-Data
 
-            if (bgra)
-            {
-                // when we want to copy the pixeldata directly into the bitmap, we have to convert them into BGRA before doing so
+            if (bgra) // when we want to copy the pixeldata directly into the bitmap, we have to convert them into BGRA before doing so
                 ARGBColor8.ConvertToBGRA(pic);
-            }
 
             return pic;
         }
