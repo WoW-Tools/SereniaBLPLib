@@ -93,7 +93,7 @@ namespace SereniaBLPLib
         private readonly uint[] mipSizes = new uint[16]; // Size for every level
         private readonly ARGBColor8[] paletteBGRA = new ARGBColor8[256]; // The color-palette for non-compressed pictures
 
-        private Stream str; // Reference of the stream
+        private Stream stream; // Reference of the stream
 
         /// <summary>
         /// Extracts the palettized Image-Data from the given Mipmap and returns a byte-Array in the 32Bit RGBA-Format
@@ -145,11 +145,11 @@ namespace SereniaBLPLib
         /// <returns></returns>
         private byte[] GetPictureData(int mipmapLevel)
         {
-            if (str != null)
+            if (stream != null)
             {
                 byte[] data = new byte[mipSizes[mipmapLevel]];
-                str.Position = mipOffsets[mipmapLevel];
-                str.Read(data, 0, data.Length);
+                stream.Position = mipOffsets[mipmapLevel];
+                stream.Read(data, 0, data.Length);
                 return data;
             }
             return null;
@@ -174,7 +174,7 @@ namespace SereniaBLPLib
 
         public BlpFile(Stream stream)
         {
-            str = stream;
+            this.stream = stream;
 
             using (BinaryReader br = new BinaryReader(stream, Encoding.ASCII, true))
             {
@@ -352,10 +352,10 @@ namespace SereniaBLPLib
         /// </summary>
         public void Close()
         {
-            if (str != null)
+            if (stream != null)
             {
-                str.Close();
-                str = null;
+                stream.Close();
+                stream = null;
             }
         }
     }
