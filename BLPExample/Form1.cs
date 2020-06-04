@@ -1,4 +1,8 @@
 ﻿using SereniaBLPLib;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Advanced;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.PixelFormats;
 using System;
 using System.Drawing;
 using System.Drawing.Imaging;
@@ -16,6 +20,19 @@ namespace BLPExample
 
         Bitmap bmp;
 
+        public static System.Drawing.Bitmap ToBitmap<TPixel>(Image<TPixel> image) where TPixel : unmanaged, IPixel<TPixel>
+        {
+            using (var memoryStream = new MemoryStream())
+            {
+                var imageEncoder = image.GetConfiguration().ImageFormatsManager.FindEncoder(PngFormat.Instance);
+                image.Save(memoryStream, imageEncoder);
+
+                memoryStream.Seek(0, SeekOrigin.Begin);
+
+                return new System.Drawing.Bitmap(memoryStream);
+            }
+        }
+
         private void OpenClick(object sender, EventArgs e)
         {
             try
@@ -26,14 +43,20 @@ namespace BLPExample
 
                 var file = openFileDialog.OpenFile();
 
+                //Image<Rgba32> img;
+
                 using (var blp = new BlpFile(file))
                 {
                     bmp = blp.GetBitmap(0);
+                    //img = blp.GetImage(0);
                 }
 
                 var graphics = panel1.CreateGraphics();
                 graphics.Clear(panel1.BackColor);
-                graphics.DrawImage(bmp, 0, 0);
+
+                //bmp = ToBitmap(img);
+
+                graphics.DrawImage(bmp, 0, 0, panel1.Width, panel1.Height);
 
                 button3.Enabled = true;
             }

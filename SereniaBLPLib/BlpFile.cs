@@ -252,17 +252,24 @@ namespace SereniaBLPLib
                     {
                         using (var img = SixLabors.ImageSharp.Image.Load<Rgba32>(data))
                         {
-                            var map = img.GetPixelSpan();
-                            byte[] rgba = new byte[width * height * 4];
-                            for (int i = 0; i < rgba.Length; i += 4)
-                            {
-                                rgba[i + 0] = map[i / 4].R;
-                                rgba[i + 1] = map[i / 4].G;
-                                rgba[i + 2] = map[i / 4].B;
-                                rgba[i + 3] = map[i / 4].A;
-                            }
-                            return rgba;
+                            if (img.TryGetSinglePixelSpan(out var pixels))
+                                return MemoryMarshal.AsBytes(pixels).ToArray();
+                            throw new Exception("img.TryGetSinglePixelSpan failed");
                         }
+
+                        //using (var img = SixLabors.ImageSharp.Image.Load<Rgba32>(data))
+                        //{
+                        //    var map = img.GetPixelSpan();
+                        //    byte[] rgba = new byte[width * height * 4];
+                        //    for (int i = 0; i < rgba.Length; i += 4)
+                        //    {
+                        //        rgba[i + 0] = map[i / 4].R;
+                        //        rgba[i + 1] = map[i / 4].G;
+                        //        rgba[i + 2] = map[i / 4].B;
+                        //        rgba[i + 3] = map[i / 4].A;
+                        //    }
+                        //    return rgba;
+                        //}
                     }
                 case BlpColorEncoding.Palette:
                     return GetPictureUncompressedByteArray(w, h, data);
@@ -288,7 +295,7 @@ namespace SereniaBLPLib
             Bitmap bmp = new Bitmap(w, h);
 
             // Faster bitmap Data copy
-            BitmapData bmpdata = bmp.LockBits(new Rectangle(0, 0, w, h), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            BitmapData bmpdata = bmp.LockBits(new System.Drawing.Rectangle(0, 0, w, h), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
             Marshal.Copy(pic, 0, bmpdata.Scan0, pic.Length); // copy! :D
             bmp.UnlockBits(bmpdata);
 
