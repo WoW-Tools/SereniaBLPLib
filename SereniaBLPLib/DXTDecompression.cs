@@ -22,6 +22,8 @@
 // http://code.google.com/p/libsquish/
 
 
+using System;
+
 namespace SereniaBLPLib
 {
     public static class DXTDecompression
@@ -34,7 +36,7 @@ namespace SereniaBLPLib
             // Additional Enums not implemented :o
         }
 
-        private static void Decompress(byte[] rgba, byte[] block, int blockIndex, DXTFlags flags)
+        private static void Decompress(Span<byte> rgba, byte[] block, int blockIndex, DXTFlags flags)
         {
             // get the block locations
             int colorBlockIndex = blockIndex;
@@ -52,7 +54,7 @@ namespace SereniaBLPLib
                 DecompressAlphaDxt5(rgba, block, blockIndex);
         }
 
-        private static void DecompressAlphaDxt3(byte[] rgba, byte[] block, int blockIndex)
+        private static void DecompressAlphaDxt3(Span<byte> rgba, byte[] block, int blockIndex)
         {
             // Unpack the alpha values pairwise
             for (int i = 0; i < 8; i++)
@@ -69,14 +71,14 @@ namespace SereniaBLPLib
             }
         }
 
-        private static void DecompressAlphaDxt5(byte[] rgba, byte[] block, int blockIndex)
+        private static void DecompressAlphaDxt5(Span<byte> rgba, byte[] block, int blockIndex)
         {
             // Get the two alpha values
             byte alpha0 = block[blockIndex + 0];
             byte alpha1 = block[blockIndex + 1];
 
             // compare the values to build the codebook
-            byte[] codes = new byte[8];
+            Span<byte> codes = stackalloc byte[8];
             codes[0] = alpha0;
             codes[1] = alpha1;
             if (alpha0 <= alpha1)
@@ -97,7 +99,7 @@ namespace SereniaBLPLib
             }
 
             // decode indices
-            byte[] indices = new byte[16];
+            Span<byte> indices = stackalloc byte[16];
             int blockSrc_pos = 2;
             int indices_pos = 0;
             for (int i = 0; i < 2; i++)
@@ -125,10 +127,10 @@ namespace SereniaBLPLib
             }
         }
 
-        private static void DecompressColor(byte[] rgba, byte[] block, int blockIndex, bool isDxt1)
+        private static void DecompressColor(Span<byte> rgba, byte[] block, int blockIndex, bool isDxt1)
         {
             // Unpack Endpoints
-            byte[] codes = new byte[16];
+            Span<byte> codes = stackalloc byte[16];
             int a = Unpack565(block, blockIndex, 0, codes, 0);
             int b = Unpack565(block, blockIndex, 2, codes, 4);
 
@@ -155,7 +157,7 @@ namespace SereniaBLPLib
             codes[12 + 3] = (isDxt1 && a <= b) ? (byte)0 : (byte)255;
 
             // unpack the indices
-            byte[] indices = new byte[16];
+            Span<byte> indices = stackalloc byte[16];
             for (int i = 0; i < 4; i++)
             {
                 byte packed = block[blockIndex + 4 + i];
@@ -178,7 +180,7 @@ namespace SereniaBLPLib
             }
         }
 
-        private static int Unpack565(byte[] block, int blockIndex, int packed_offset, byte[] colour, int colour_offset)
+        private static int Unpack565(byte[] block, int blockIndex, int packed_offset, Span<byte> colour, int colour_offset)
         {
             // Build packed value
             int value = block[blockIndex + packed_offset] | (block[blockIndex + 1 + packed_offset] << 8);
@@ -204,7 +206,7 @@ namespace SereniaBLPLib
             // initialise the block input
             int sourceBlock_pos = 0;
             int bytesPerBlock = (flags & DXTFlags.DXT1) != 0 ? 8 : 16;
-            byte[] targetRGBA = new byte[4 * 16];
+            Span<byte> targetRGBA = stackalloc byte[4 * 16];
 
             // loop over blocks
             for (int y = 0; y < height; y += 4)
