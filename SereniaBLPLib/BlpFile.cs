@@ -25,6 +25,7 @@ using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -45,11 +46,10 @@ namespace SereniaBLPLib
         /// <param name="pixel"></param>
         public static void ConvertToBGRA(byte[] pixel)
         {
-            byte tmp = 0;
             for (int i = 0; i < pixel.Length; i += 4)
             {
-                tmp = pixel[i]; // store red
-                pixel[i] = pixel[i + 2]; // Write blue into red
+                byte tmp = pixel[i]; // store red
+                pixel[i] = pixel[i + 2]; // write blue into red
                 pixel[i + 2] = tmp; // write stored red into blue
             }
         }
@@ -252,22 +252,33 @@ namespace SereniaBLPLib
                     {
                         using (var img = SixLabors.ImageSharp.Image.Load<Rgba32>(data))
                         {
-                            if (img.TryGetSinglePixelSpan(out var pixels))
-                                return MemoryMarshal.AsBytes(pixels).ToArray();
-                            throw new Exception("img.TryGetSinglePixelSpan failed");
+                            byte[] pixelBytes = new byte[img.Width * img.Height * Unsafe.SizeOf<Rgba32>()];
+                            img.CopyPixelDataTo(pixelBytes);
+                            return pixelBytes;
                         }
 
                         //using (var img = SixLabors.ImageSharp.Image.Load<Rgba32>(data))
                         //{
-                        //    var map = img.GetPixelSpan();
                         //    byte[] rgba = new byte[width * height * 4];
-                        //    for (int i = 0; i < rgba.Length; i += 4)
+                        //    img.ProcessPixelRows(accessor =>
                         //    {
-                        //        rgba[i + 0] = map[i / 4].R;
-                        //        rgba[i + 1] = map[i / 4].G;
-                        //        rgba[i + 2] = map[i / 4].B;
-                        //        rgba[i + 3] = map[i / 4].A;
-                        //    }
+                        //        int i = 0;
+                        //        for (int y = 0; y < accessor.Height; y++)
+                        //        {
+                        //            Span<Rgba32> pixelRow = accessor.GetRowSpan(y);
+
+                        //            for (int x = 0; x < pixelRow.Length; x++)
+                        //            {
+                        //                ref Rgba32 pixel = ref pixelRow[x];
+
+                        //                rgba[i + 0] = pixel.R;
+                        //                rgba[i + 1] = pixel.G;
+                        //                rgba[i + 2] = pixel.B;
+                        //                rgba[i + 3] = pixel.A;
+                        //                i += 4;
+                        //            }
+                        //        }
+                        //    });
                         //    return rgba;
                         //}
                     }
@@ -279,7 +290,7 @@ namespace SereniaBLPLib
                 case BlpColorEncoding.Argb8888:
                     return data;
                 default:
-                    return new byte[0];
+                    return Array.Empty<byte>();
             }
         }
 
@@ -290,7 +301,7 @@ namespace SereniaBLPLib
         /// <returns>The Bitmap</returns>
         public Bitmap GetBitmap(int mipmapLevel)
         {
-            byte[] pic = GetPixels(mipmapLevel, out int w, out int h, colorEncoding == BlpColorEncoding.Argb8888 ? false : true);
+            byte[] pic = GetPixels(mipmapLevel, out int w, out int h, colorEncoding != BlpColorEncoding.Argb8888);
 
             Bitmap bmp = new Bitmap(w, h);
 
@@ -307,7 +318,7 @@ namespace SereniaBLPLib
         /// </summary>
         public Image<Rgba32> GetImage(int mipmapLevel)
         {
-            byte[] pic = GetPixels(mipmapLevel, out int w, out int h, colorEncoding == BlpColorEncoding.Argb8888 ? true : false);
+            byte[] pic = GetPixels(mipmapLevel, out int w, out int h, colorEncoding == BlpColorEncoding.Argb8888);
 
             var image = SixLabors.ImageSharp.Image.LoadPixelData<Rgba32>(pic, w, h);
 
