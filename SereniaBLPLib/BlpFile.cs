@@ -92,6 +92,7 @@ namespace SereniaBLPLib
         private readonly uint[] mipOffsets = new uint[16]; // Offset for every Mipmap level. If 0 = no more mitmap level
         private readonly uint[] mipSizes = new uint[16]; // Size for every level
         private readonly ARGBColor8[] paletteBGRA = new ARGBColor8[256]; // The color-palette for non-compressed pictures
+        private readonly byte[] jpegHeader;
 
         private Stream stream; // Reference of the stream
 
@@ -235,7 +236,7 @@ namespace SereniaBLPLib
                 else if (colorEncoding == BlpColorEncoding.Jpeg)
                 {
                     int jpegHeaderSize = br.ReadInt32();
-                    byte[] jpegHeader = br.ReadBytes(jpegHeaderSize);
+                    jpegHeader = br.ReadBytes(jpegHeaderSize);
                     // what do we do with this header?
                 }
             }
@@ -250,11 +251,30 @@ namespace SereniaBLPLib
             {
                 case BlpColorEncoding.Jpeg:
                     {
-                        using (var img = SixLabors.ImageSharp.Image.Load<Rgba32>(data))
+                        if (jpegHeader.Length != 0)
                         {
-                            byte[] pixelBytes = new byte[img.Width * img.Height * Unsafe.SizeOf<Rgba32>()];
-                            img.CopyPixelDataTo(pixelBytes);
-                            return pixelBytes;
+                            using (MemoryStream ms = new MemoryStream())
+                            {
+                                ms.Write(jpegHeader, 0, jpegHeader.Length);
+                                ms.Write(data, 0, data.Length);
+                                ms.Position = 0;
+
+                                using (var img = SixLabors.ImageSharp.Image.Load<Rgba32>(ms))
+                                {
+                                    byte[] pixelBytes = new byte[img.Width * img.Height * Unsafe.SizeOf<Rgba32>()];
+                                    img.CopyPixelDataTo(pixelBytes);
+                                    return pixelBytes;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            using (var img = SixLabors.ImageSharp.Image.Load<Rgba32>(data))
+                            {
+                                byte[] pixelBytes = new byte[img.Width * img.Height * Unsafe.SizeOf<Rgba32>()];
+                                img.CopyPixelDataTo(pixelBytes);
+                                return pixelBytes;
+                            }
                         }
 
                         //using (var img = SixLabors.ImageSharp.Image.Load<Rgba32>(data))
