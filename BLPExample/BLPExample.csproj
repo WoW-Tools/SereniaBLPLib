@@ -81,9 +81,14 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SereniaBLPLib\SereniaBLPLib.csproj">
-      <Project>{4ED9F877-A9BB-470F-B35C-694147472080}</Project>
+      <Project>{072a7ca4-baaf-4d55-9618-e0817186ede0}</Project>
       <Name>SereniaBLPLib</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="SixLabors.ImageSharp">
+      <Version>2.1.11</Version>
+    </PackageReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
