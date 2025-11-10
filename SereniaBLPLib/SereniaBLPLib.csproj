@@ -5,9 +5,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SixLabors.ImageSharp" Version="2.1.11" Condition="'$(TargetFramework)' == 'netstandard2.0'" />
-    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" Condition="'$(TargetFramework)' != 'netstandard2.0'" />
-    <PackageReference Include="System.Drawing.Common" Version="8.0.8" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="2.1.12" Condition="'$(TargetFramework)' == 'netstandard2.0'" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" Condition="'$(TargetFramework)' != 'netstandard2.0'" />
+    <PackageReference Include="System.Drawing.Common" Version="9.0.10" />
   </ItemGroup>
 
 </Project>
